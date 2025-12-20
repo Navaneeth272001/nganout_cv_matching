@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resume-Job Description Matching System</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <h1>Resume-Job Description Matching System</h1>
+            <p class="subtitle">AI-powered automated resume screening and job matching platform</p>
+        </header>
+
+        <!-- Upload Section -->
+        <section class="upload-section">
+            <div class="upload-grid">
+                <!-- Resume Upload Zone -->
+                <div class="upload-zone">
+                    <h2>Upload Resumes</h2>
+                    <div class="drop-zone" id="resumeDropZone">
+                        <div class="drop-zone-content">
+                            <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                <polyline points="17 8 12 3 7 8"></polyline>
+                                <line x1="12" y1="3" x2="12" y2="15"></line>
+                            </svg>
+                            <p class="drop-zone-text">Drag &amp; drop resume PDFs here</p>
+                            <p class="drop-zone-subtext">or click to browse</p>
+                            <input type="file" id="resumeInput" accept=".pdf" multiple hidden>
+                            <button class="btn btn--secondary" id="resumeBrowseBtn">Browse Files</button>
+                        </div>
+                    </div>
+                    <div class="file-list" id="resumeFileList"></div>
+                </div>
+
+                <!-- Job Description Upload Zone -->
+                <div class="upload-zone">
+                    <h2>Upload Job Descriptions</h2>
+                    <div class="drop-zone" id="jdDropZone">
+                        <div class="drop-zone-content">
+                            <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                <polyline points="17 8 12 3 7 8"></polyline>
+                                <line x1="12" y1="3" x2="12" y2="15"></line>
+                            </svg>
+                            <p class="drop-zone-text">Drag &amp; drop job description PDFs here</p>
+                            <p class="drop-zone-subtext">or click to browse</p>
+                            <input type="file" id="jdInput" accept=".pdf" multiple hidden>
+                            <button class="btn btn--secondary" id="jdBrowseBtn">Browse Files</button>
+                        </div>
+                    </div>
+                    <div class="file-list" id="jdFileList"></div>
+                </div>
+            </div>
+
+            <!-- Process Button -->
+            <div class="action-buttons">
+                <button class="btn btn--primary" id="processBtn" disabled>
+                    <span id="processBtnText">Upload Files to Start</span>
+                </button>
+                <button class="btn btn--outline" id="clearBtn" style="display: none;">Clear All</button>
+            </div>
+        </section>
+
+        <!-- Processing Status -->
+        <div class="processing-status" id="processingStatus" style="display: none;">
+            <div class="spinner"></div>
+            <p id="statusText">Processing files...</p>
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+        </div>
+
+        <!-- Results Section -->
+        <section class="results-section" id="resultsSection" style="display: none;">
+            <div class="results-header">
+                <h2>Matching Results</h2>
+                <div class="export-buttons">
+                    <button class="btn btn--secondary btn--sm" id="exportCsvBtn">
+                        <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="7 10 12 15 17 10"></polyline>
+                            <line x1="12" y1="15" x2="12" y2="3"></line>
+                        </svg>
+                        Export CSV
+                    </button>
+                    <button class="btn btn--secondary btn--sm" id="exportExcelBtn">
+                        <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="7 10 12 15 17 10"></polyline>
+                            <line x1="12" y1="15" x2="12" y2="3"></line>
+                        </svg>
+                        Export Excel
+                    </button>
+                </div>
+            </div>
+            <div class="table-container">
+                <table class="results-table" id="resultsTable">
+                    <thead>
+                        <tr>
+                            <th>Candidate Name</th>
+                            <th>Contact Number</th>
+                            <th>Email</th>
+                            <th>LinkedIn Profile</th>
+                            <th>Matched Job Description</th>
+                            <th>Match Score</th>
+                        </tr>
+                    </thead>
+                    <tbody id="resultsTableBody">
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

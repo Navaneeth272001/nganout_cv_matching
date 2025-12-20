@@ -1,0 +1,29 @@
+{
+  "name": "resume-matcher-llm",
+  "version": "1.0.0",
+  "description": "Resume to Job Description matcher powered by LLM",
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": [
+    "resume",
+    "job",
+    "matcher",
+    "llm",
+    "ai"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "canvas": "^3.2.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "multer": "^2.0.2",
+    "pdf-parse": "^1.1.1",
+    "pdfjs-dist": "^5.4.449"
+  }
+}

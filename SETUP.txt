@@ -1,0 +1,168 @@
+# SETUP INSTRUCTIONS
+
+## Files Created
+
+You now have these 5 files ready to download:
+
+1. **`.env`** - Configuration file (API keys go here)
+2. **`server.js`** - Express backend that calls the LLM
+3. **`app.js`** - Frontend JavaScript
+4. **`package.json`** - Node.js dependencies
+5. **`README.md`** - Complete documentation
+
+Plus your existing:
+- `index.html` - Frontend UI (keep as is)
+- `style.css` - Styling (keep as is)
+
+---
+
+## Step-by-Step Setup
+
+### Step 1: Download All Files
+
+Download the 5 new files and place them in a folder with your existing `index.html` and `style.css`.
+
+Your folder should look like:
+```
+my-resume-matcher/
+├── .env
+├── server.js
+├── app.js
+├── package.json
+├── README.md
+├── index.html
+└── style.css
+```
+
+### Step 2: Get an API Key (Choose One)
+
+**Option A: OpenAI (Easiest)**
+- Go to: https://platform.openai.com/api-keys
+- Sign up (free $5 credit)
+- Create a new API key
+- Copy the key
+
+**Option B: Perplexity (Free)**
+- Go to: https://www.perplexity.ai/api
+- Sign up
+- Get your API key
+
+**Option C: DeepSeek (Cheap)**
+- Go to: https://platform.deepseek.com/api
+- Sign up (free $5 credit)
+- Get your API key
+
+**Option D: Local Ollama (Free, Offline)**
+- Download from: https://ollama.ai
+- Install and run
+- Pull a model: `ollama pull llama2`
+- No API key needed
+
+### Step 3: Edit `.env` File
+
+Open `.env` and replace `your_api_key_here` with your actual API key:
+
+```env
+# For OpenAI:
+OPENAI_API_KEY=sk-proj-xxxxxxxxxxxxx
+OPENAI_BASE_URL=https://api.openai.com/v1
+OPENAI_MODEL=gpt-4o-mini
+PORT=3000
+
+# For Perplexity (change these instead):
+# OPENAI_API_KEY=pplx-xxxxxxxxxxxxxxx
+# OPENAI_BASE_URL=https://api.perplexity.ai
+# OPENAI_MODEL=llama-2-70b-chat
+
+# For DeepSeek (change these instead):
+# OPENAI_API_KEY=sk-xxxxxxxxxxxxxxx
+# OPENAI_BASE_URL=https://api.deepseek.com
+# OPENAI_MODEL=deepseek-chat
+
+# For Local Ollama (change these instead):
+# OPENAI_BASE_URL=http://localhost:11434/v1
+# OPENAI_MODEL=llama2
+```
+
+### Step 4: Install Dependencies
+
+Open terminal/command prompt in your folder and run:
+
+```bash
+npm install
+```
+
+This installs: express, cors, dotenv
+
+### Step 5: Start the Server
+
+```bash
+npm start
+```
+
+You should see:
+```
+✓ Using model: gpt-4o-mini
+✓ Using endpoint: https://api.openai.com/v1
+
+✅ Server running at http://localhost:3000
+```
+
+### Step 6: Open in Browser
+
+Go to: `http://localhost:3000`
+
+Now you can:
+1. Upload resume PDFs
+2. Upload job description PDFs
+3. Click "Process with AI"
+4. See LLM-powered match scores
+5. Export results as CSV or Excel
+
+---
+
+## Common Issues & Solutions
+
+### "npm: command not found"
+- Node.js is not installed
+- Download from: https://nodejs.org (use LTS version)
+- Restart terminal after installing
+
+### "OPENAI_API_KEY is not set"
+- Check `.env` file exists in your folder
+- Make sure you edited it with your real API key
+- Don't use `your_api_key_here` - replace it!
+
+### "Error: connect ECONNREFUSED 127.0.0.1:3000"
+- Another app is using port 3000
+- Either close that app or change PORT in `.env` to 3001, 3002, etc.
+
+### "LLM request failed: 401"
+- Your API key is wrong or expired
+- Get a new one from your provider's dashboard
+
+### "LLM request failed: 429"
+- Rate limit hit (too many requests)
+- Wait a few minutes and try again
+- Or upgrade your API plan
+
+---
+
+## Switching LLM Providers Later
+
+Just edit `.env` and change:
+- `OPENAI_API_KEY` (your key from new provider)
+- `OPENAI_BASE_URL` (endpoint URL)
+- `OPENAI_MODEL` (model name)
+
+Restart server: `npm start`
+
+No code changes needed!
+
+---
+
+## That's It!
+
+Your app is ready to use. Upload some PDFs and start matching!
+
+For detailed docs, see `README.md`.
