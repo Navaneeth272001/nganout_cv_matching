@@ -25,14 +25,14 @@
                             <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                                 <polyline points="17 8 12 3 7 8"></polyline>
-                                <line x1="12" y1="3" x2="12" y2="15"></line>
+                                <line x1="12" y1="13" x2="12" y2="21"></line>
                             </svg>
-                            <p class="drop-zone-text">Drag &amp; drop resume PDFs here</p>
+                            <p class="drop-zone-text">Drag & drop resume PDFs here</p>
                             <p class="drop-zone-subtext">or click to browse</p>
-                            <input type="file" id="resumeInput" accept=".pdf" multiple hidden>
-                            <button class="btn btn--secondary" id="resumeBrowseBtn">Browse Files</button>
                         </div>
                     </div>
+                    <input type="file" id="resumeInput" accept=".pdf" multiple hidden>
+                    <button class="btn btn--secondary" id="resumeBrowseBtn">Browse Files</button>
                     <div class="file-list" id="resumeFileList"></div>
                 </div>
 
@@ -44,14 +44,14 @@
                             <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                                 <polyline points="17 8 12 3 7 8"></polyline>
-                                <line x1="12" y1="3" x2="12" y2="15"></line>
+                                <line x1="12" y1="13" x2="12" y2="21"></line>
                             </svg>
-                            <p class="drop-zone-text">Drag &amp; drop job description PDFs here</p>
+                            <p class="drop-zone-text">Drag & drop job description PDFs here</p>
                             <p class="drop-zone-subtext">or click to browse</p>
-                            <input type="file" id="jdInput" accept=".pdf" multiple hidden>
-                            <button class="btn btn--secondary" id="jdBrowseBtn">Browse Files</button>
                         </div>
                     </div>
+                    <input type="file" id="jdInput" accept=".pdf" multiple hidden>
+                    <button class="btn btn--secondary" id="jdBrowseBtn">Browse Files</button>
                     <div class="file-list" id="jdFileList"></div>
                 </div>
             </div>
@@ -97,16 +97,20 @@
                     </button>
                 </div>
             </div>
+
             <div class="table-container">
                 <table class="results-table" id="resultsTable">
                     <thead>
                         <tr>
                             <th>Candidate Name</th>
-                            <th>Contact Number</th>
-                            <th>Email</th>
-                            <th>LinkedIn Profile</th>
-                            <th>Matched Job Description</th>
+                            <th>Resume File Name</th>
+                            <th>Job Description</th>
                             <th>Match Score</th>
+                            <th>Seniority Fit</th>
+                            <th>Email</th>
+                            <th>Contact Number</th>
+                            <th>LinkedIn Profile</th>
+                            <th>Match Summary</th>
                         </tr>
                     </thead>
                     <tbody id="resultsTableBody">

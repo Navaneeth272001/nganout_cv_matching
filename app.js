@@ -1,4 +1,4 @@
-// app.js — FINAL UI WIRING (Safari-safe, backend-aligned)
+// app.js — UPDATED UI WITH CORRECTED TABLE COLUMN ORDER
 
 let resumes = [];
 let jds = [];
@@ -7,22 +7,18 @@ const resumeInput = document.getElementById('resumeInput');
 const jdInput = document.getElementById('jdInput');
 const resumeBrowseBtn = document.getElementById('resumeBrowseBtn');
 const jdBrowseBtn = document.getElementById('jdBrowseBtn');
-
 const resumeFileList = document.getElementById('resumeFileList');
 const jdFileList = document.getElementById('jdFileList');
-
 const processBtn = document.getElementById('processBtn');
 const clearBtn = document.getElementById('clearBtn');
-
 const resultsSection = document.getElementById('resultsSection');
 const resultsTableBody = document.getElementById('resultsTableBody');
-
 const processingStatus = document.getElementById('processingStatus');
 const statusText = document.getElementById('statusText');
 
-/* ======================================================
-   SAFARI: Explicit button → input wiring
-   ====================================================== */
+/* ====================================================== 
+FILE INPUT HANDLING 
+====================================================== */
 
 resumeBrowseBtn.addEventListener('click', () => resumeInput.click());
 jdBrowseBtn.addEventListener('click', () => jdInput.click());
@@ -39,9 +35,9 @@ jdInput.addEventListener('change', e => {
   updateProcessButton();
 });
 
-/* ======================================================
-   UI HELPERS
-   ====================================================== */
+/* ====================================================== 
+UI HELPERS 
+====================================================== */
 
 function renderFileList(container, files) {
   container.innerHTML = '';
@@ -55,47 +51,50 @@ function renderFileList(container, files) {
 
 function updateProcessButton() {
   processBtn.disabled = !(resumes.length && jds.length);
-  processBtn.textContent = processBtn.disabled
-    ? 'Upload Files to Start'
-    : 'Start Matching';
+  processBtn.textContent = processBtn.disabled ? 'Upload Files to Start' : 'Start Matching';
   clearBtn.style.display = resumes.length || jds.length ? 'inline-block' : 'none';
 }
 
-/* ======================================================
-   MAIN PROCESS
-   ====================================================== */
+/* ====================================================== 
+BATCH PROCESSING
+====================================================== */
 
 processBtn.addEventListener('click', async () => {
   resultsTableBody.innerHTML = '';
   resultsSection.style.display = 'none';
   processingStatus.style.display = 'block';
-  statusText.textContent = 'Matching resumes with job descriptions...';
 
-  for (const resume of resumes) {
+  try {
+    // Process each JD with all resumes
     for (const jd of jds) {
-      try {
-        const result = await matchResume(resume, jd);
-        addResultRow(jd.name, result);
-      } catch (err) {
-        console.error('❌ Match error:', err.message);
-      }
+      statusText.textContent = `Processing "${jd.name}" with ${resumes.length} resumes...`;
+      await processBatch(resumes, jd);
     }
-  }
 
-  processingStatus.style.display = 'none';
-  resultsSection.style.display = 'block';
+    processingStatus.style.display = 'none';
+    resultsSection.style.display = 'block';
+  } catch (err) {
+    console.error('❌ Batch processing error:', err.message);
+    statusText.textContent = '❌ Error during processing';
+  }
 });
 
-/* ======================================================
-   BACKEND CALL
-   ====================================================== */
+/* ====================================================== 
+BATCH API CALL (RANKS ALL CVs TOGETHER)
+====================================================== */
 
-async function matchResume(resumeFile, jdFile) {
+async function processBatch(resumeFiles, jdFile) {
   const formData = new FormData();
-  formData.append('resume', resumeFile);
+
+  // Add all resumes
+  resumeFiles.forEach(file => {
+    formData.append('resumes', file);
+  });
+
+  // Add single JD
   formData.append('jd', jdFile);
 
-  const res = await fetch('/api/match', {
+  const res = await fetch('/api/batch-match', {
     method: 'POST',
     body: formData
   });
@@ -105,37 +104,56 @@ async function matchResume(resumeFile, jdFile) {
     throw new Error(err);
   }
 
-  return await res.json();
+  const data = await res.json();
+  
+  // Add all results (already ranked by backend)
+  data.ranked_results.forEach(result => {
+    addResultRow(jdFile.name, result);
+  });
 }
 
-/* ======================================================
-   TABLE RENDERING (THIS WAS YOUR BUG)
-   ====================================================== */
+/* ====================================================== 
+TABLE RENDERING (CORRECTED COLUMN ORDER)
+====================================================== */
 
 function addResultRow(jdName, data) {
   const tr = document.createElement('tr');
+  
+  // Color code by score
+  let scoreClass = '';
+  if (data.match_score >= 75) scoreClass = 'score-high';
+  else if (data.match_score >= 50) scoreClass = 'score-medium';
+  else scoreClass = 'score-low';
+
+  // TABLE COLUMN ORDER:
+  // 1. Candidate Name
+  // 2. Resume File Name
+  // 3. Job Description
+  // 4. Match Score
+  // 5. Seniority Fit
+  // 6. Email
+  // 7. Contact Number
+  // 8. LinkedIn Profile
+  // 9. Match Summary
 
   tr.innerHTML = `
-    <td>${data.candidate_name || '—'}</td>
-    <td>${data.phone || '—'}</td>
-    <td>${data.email || '—'}</td>
-    <td>
-      ${
-        data.linkedin && data.linkedin !== '—'
-          ? `<a href="${data.linkedin}" target="_blank">Profile</a>`
-          : '—'
-      }
-    </td>
+    <td><strong>${data.candidate_name}</strong></td>
+    <td>${data.resume_name}</td>
     <td>${jdName}</td>
-    <td><strong>${data.match_score}%</strong></td>
+    <td class="${scoreClass}"><strong>${data.match_score}%</strong></td>
+    <td>${data.seniority_fit}</td>
+    <td>${data.email}</td>
+    <td>${data.phone}</td>
+    <td><a href="${data.linkedin}" target="_blank" rel="noopener noreferrer">${data.linkedin === '—' ? '—' : 'View'}</a></td>
+    <td class="summary-cell">${data.summary}</td>
   `;
 
   resultsTableBody.appendChild(tr);
 }
 
-/* ======================================================
-   CLEAR
-   ====================================================== */
+/* ====================================================== 
+CLEAR FUNCTION 
+====================================================== */
 
 clearBtn.addEventListener('click', () => {
   resumes = [];
@@ -146,5 +164,6 @@ clearBtn.addEventListener('click', () => {
   jdFileList.innerHTML = '';
   resultsTableBody.innerHTML = '';
   resultsSection.style.display = 'none';
+  processingStatus.style.display = 'none';
   updateProcessButton();
 });
