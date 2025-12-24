@@ -1,4 +1,4 @@
-// server.js — IMPROVED WITH RATE LIMITING + BETTER PHONE EXTRACTION
+// server.js — UNIVERSAL LLM SUPPORT (OpenAI, Perplexity, DeepSeek, Ollama, Groq, Claude)
 
 require('dotenv').config();
 
@@ -10,15 +10,36 @@ const pdfParse = require('pdf-parse');
 const app = express();
 const upload = multer();
 const PORT = process.env.PORT || 3000;
-const API_KEY = process.env.OPENAI_API_KEY;
+
+// Support multiple LLM providers
+const API_KEY = process.env.OPENAI_API_KEY || process.env.ANTHROPIC_API_KEY;
 const BASE_URL = process.env.OPENAI_BASE_URL;
 const MODEL = process.env.OPENAI_MODEL;
 
+// Detect provider from BASE_URL
+function detectProvider() {
+  if (!BASE_URL) return 'UNKNOWN';
+  if (BASE_URL.includes('anthropic')) return 'ANTHROPIC';
+  if (BASE_URL.includes('openai')) return 'OPENAI';
+  if (BASE_URL.includes('perplexity')) return 'PERPLEXITY';
+  if (BASE_URL.includes('deepseek')) return 'DEEPSEEK';
+  if (BASE_URL.includes('groq')) return 'GROQ';
+  if (BASE_URL.includes('localhost') || BASE_URL.includes('127.0.0.1')) return 'OLLAMA';
+  return 'CUSTOM';
+}
+
+const PROVIDER = detectProvider();
+
 if (!API_KEY || !BASE_URL || !MODEL) {
   console.error('❌ Missing LLM configuration in .env');
+  console.error('Required:');
+  console.error('  - OPENAI_API_KEY or ANTHROPIC_API_KEY');
+  console.error('  - OPENAI_BASE_URL');
+  console.error('  - OPENAI_MODEL');
   process.exit(1);
 }
 
+console.log(`✓ Provider: ${PROVIDER}`);
 console.log(`✓ Model: ${MODEL}`);
 console.log(`✓ Endpoint: ${BASE_URL}`);
 
@@ -31,7 +52,7 @@ RATE LIMITING - PREVENT TOKEN EXHAUSTION
 
 let requestQueue = [];
 let isProcessing = false;
-const REQUEST_DELAY = 500; // 500ms between LLM requests
+const REQUEST_DELAY = 500; // 500ms between API requests
 
 async function rateLimitedFetch(url, options) {
   return new Promise((resolve, reject) => {
@@ -63,48 +84,9 @@ async function processQueue() {
 IMPROVED REGEX PATTERNS
 ============================================================ */
 
-// Email pattern
 const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-z]{2,}/g;
-
-// IMPROVED Phone pattern - handles Indian, US, and international formats
 const phoneRegex = /(\+?91|0)?[\s-]?[6-9]\d{2}[\s-]?\d{3}[\s-]?\d{4}|(\+1[\s-]?)?(\(\d{3}\)|[\s-]?\d{3})[\s-]?\d{3}[\s-]?\d{4}/g;
-
-// LinkedIn pattern
 const linkedinRegex = /(https?:\/\/)?(www\.)?linkedin\.com\/in\/[a-zA-Z0-9\-_%]+/gi;
-
-/* ============================================================
-IMPROVED PHONE NUMBER EXTRACTION
-============================================================ */
-
-function extractPhones(text) {
-  const matches = text.match(phoneRegex) || [];
-  
-  if (matches.length > 0) {
-    // Return first valid phone number, cleaned up
-    let phone = matches[0]
-      .replace(/[\s\-()]/g, '')
-      .replace(/^0/, '+91');
-    
-    return phone || '—';
-  }
-
-  // FALLBACK: Look for patterns that might be missed
-  const lines = text.split('\n');
-  for (const line of lines) {
-    // Pattern: +91 9876543210 or 9876543210
-    const match = line.match(/(\+91[\s]?)?([6-9]\d{9})/);
-    if (match) {
-      return match[0].trim();
-    }
-    // Pattern: (91) 98765-43210
-    const match2 = line.match(/\(91\)[\s]?([6-9]\d{4})[\s-]?(\d{5})/);
-    if (match2) {
-      return `+91${match2[1]}${match2[2]}`;
-    }
-  }
-
-  return '—';
-}
 
 /* ============================================================
 LLM-BASED NAME EXTRACTION (WITH CACHING)
@@ -113,7 +95,6 @@ LLM-BASED NAME EXTRACTION (WITH CACHING)
 const nameCache = {};
 
 async function extractNameWithLLM(text, resumeFileName) {
-  // Cache check: if we've seen similar resume before, reuse
   const cacheKey = resumeFileName;
   if (nameCache[cacheKey]) {
     console.log(`✓ Using cached name for ${resumeFileName}`);
@@ -121,50 +102,83 @@ async function extractNameWithLLM(text, resumeFileName) {
   }
 
   try {
-    const systemPrompt = `You are an expert at extracting candidate names from resumes.
-Return ONLY a valid JSON object with field "name" containing the candidate's full name.
-If the name cannot be determined, return {"name": "Unknown"}.
-Do NOT include titles, degrees, company names, or locations.
-Examples:
-- Input: "John Smith Senior Engineer at Google" → Output: {"name": "John Smith"}
-- Input: "Bangalore Tech Solutions" → Output: {"name": "Unknown"}`;
+    // Build provider-specific request
+    let requestBody = {};
+    let headers = {
+      'Content-Type': 'application/json'
+    };
 
-    const userPrompt = `Extract the candidate's full name from this resume text. Return only JSON.
+    if (PROVIDER === 'ANTHROPIC') {
+      headers['x-api-key'] = API_KEY;
+      headers['anthropic-version'] = '2023-06-01';
+      
+      requestBody = {
+        model: MODEL,
+        max_tokens: 50,
+        messages: [
+          {
+            role: 'user',
+            content: `Extract the candidate's full name from this resume text. Return ONLY a valid JSON object with field "name". Do NOT include titles, degrees, company names, or locations.
 
-${text.slice(0, 800)}`;
-
-    const response = await rateLimitedFetch(`${BASE_URL}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${API_KEY}`
-      },
-      body: JSON.stringify({
+Resume text:
+${text.slice(0, 800)}`
+          }
+        ]
+      };
+    } else {
+      // OpenAI-compatible format (OpenAI, Groq, Perplexity, DeepSeek, Ollama)
+      headers['Authorization'] = `Bearer ${API_KEY}`;
+      
+      requestBody = {
         model: MODEL,
         temperature: 0.1,
         max_tokens: 50,
         messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt }
+          {
+            role: 'system',
+            content: 'Extract the candidate\'s full name from resume text. Return ONLY JSON: {"name": "Full Name"}. Do NOT include titles, degrees, company names, or locations.'
+          },
+          {
+            role: 'user',
+            content: `Extract name from resume:\n\n${text.slice(0, 800)}`
+          }
         ]
-      })
-    });
+      };
+    }
+
+    const response = await rateLimitedFetch(
+      PROVIDER === 'ANTHROPIC' 
+        ? 'https://api.anthropic.com/v1/messages'
+        : `${BASE_URL}/chat/completions`,
+      {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(requestBody)
+      }
+    );
 
     if (!response.ok) {
       const err = await response.json();
-      console.warn('⚠️ LLM API error:', err.error?.message);
+      console.warn('⚠️ LLM API error:', err.error?.message || JSON.stringify(err));
       return null;
     }
 
     const data = await response.json();
-    const content = data.choices[0].message.content;
+    let content = '';
+
+    // Extract content based on provider
+    if (PROVIDER === 'ANTHROPIC') {
+      content = data.content[0].text;
+    } else {
+      content = data.choices[0].message.content;
+    }
+
     const match = content.match(/\{[\s\S]*\}/);
     
     if (match) {
       const result = JSON.parse(match[0]);
       const name = result.name !== 'Unknown' ? result.name : null;
       
-      // Cache the result
       if (name) {
         nameCache[cacheKey] = name;
       }
@@ -202,19 +216,14 @@ function extractNameRegex(text) {
   for (const line of lines.slice(0, 20)) {
     const lower = line.toLowerCase();
 
-    // Reject blacklisted words
     if (blacklist.some(word => lower.includes(word))) continue;
-
-    // Reject lines with emails, phones, numbers, symbols (except apostrophe, hyphen, dot)
     if (/[0-9@:/!]/.test(line)) continue;
 
-    // Normalize ALL CAPS
     const normalized =
       /^[A-Z\s]+$/.test(line)
         ? line.toLowerCase().replace(/\b\w/g, c => c.toUpperCase())
         : line;
 
-    // Match: First name + Middle/Last names + optional initials + hyphens/apostrophes
     if (/^[A-Z][a-z]+([\s\-'][A-Z][a-z]+)*([\s][A-Z])?$/.test(normalized)) {
       return normalized;
     }
@@ -224,14 +233,42 @@ function extractNameRegex(text) {
 }
 
 /* ============================================================
+IMPROVED PHONE NUMBER EXTRACTION
+============================================================ */
+
+function extractPhones(text) {
+  const matches = text.match(phoneRegex) || [];
+  
+  if (matches.length > 0) {
+    let phone = matches[0]
+      .replace(/[\s\-()]/g, '')
+      .replace(/^0/, '+91');
+    
+    return phone || '—';
+  }
+
+  const lines = text.split('\n');
+  for (const line of lines) {
+    const match = line.match(/(\+91[\s]?)?([6-9]\d{9})/);
+    if (match) {
+      return match[0].trim();
+    }
+    const match2 = line.match(/\(91\)[\s]?([6-9]\d{4})[\s-]?(\d{5})/);
+    if (match2) {
+      return `+91${match2[1]}${match2[2]}`;
+    }
+  }
+
+  return '—';
+}
+
+/* ============================================================
 ENTITY EXTRACTION
 ============================================================ */
 
 async function extractEntities(text, resumeFileName) {
-  // Try LLM name extraction first
   let name = await extractNameWithLLM(text, resumeFileName);
   
-  // Fallback to regex
   if (!name) {
     name = extractNameRegex(text);
   }
@@ -254,13 +291,120 @@ async function extractEntities(text, resumeFileName) {
 HELPERS
 ============================================================ */
 
-const truncate = (text, max = 1500) =>
+const truncate = (text, max = 2000) =>
   text.length > max ? text.slice(0, max) : text;
 
 function extractJSON(text) {
   const match = text.match(/\{[\s\S]*\}/);
-  if (!match) throw new Error('LLM did not return JSON');
+  if (!match) throw new Error('LLM did not return valid JSON');
   return JSON.parse(match[0]);
+}
+
+/* ============================================================
+IMPROVED MATCHING WITH DETAILED ANALYSIS
+============================================================ */
+
+async function scoreResumeWithLLM(resumeText, jdText) {
+  try {
+    // Provider-specific scoring system
+    let requestBody = {};
+    let headers = {
+      'Content-Type': 'application/json'
+    };
+
+const systemPrompt = `ATS scoring engine. Score CV vs JD (0-100).
+
+RULES:
+- Skills (40%), Experience (30%), Role (20%), Education (10%)
+- DIFFERENT CVs = DIFFERENT scores
+- 80-95%: Perfect match
+- 50-70%: Partial  
+- 20-50%: Minimal
+- 0-20%: No match
+
+Return ONLY JSON (no other text):
+{
+  "match_score": 85,
+  "skills_match": "80%",
+  "seniority_fit": "Strong",
+  "summary": "2 sentences max"
+}`;
+
+
+    const userPrompt = `Analyze this CV against the JD and provide a detailed matching score.
+
+RESUME:
+${resumeText}
+
+JOB DESCRIPTION:
+${jdText}
+
+Provide detailed analysis considering skill gaps, experience level, and role alignment.`;
+
+    if (PROVIDER === 'ANTHROPIC') {
+      headers['x-api-key'] = API_KEY;
+      headers['anthropic-version'] = '2023-06-01';
+      
+      requestBody = {
+        model: MODEL,
+        max_tokens: 500,
+        messages: [
+          { role: 'user', content: userPrompt }
+        ],
+        system: systemPrompt
+      };
+    } else {
+      // OpenAI-compatible format
+      headers['Authorization'] = `Bearer ${API_KEY}`;
+      
+      requestBody = {
+        model: MODEL,
+        temperature: 0.2,
+        max_tokens: 500,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt }
+        ]
+      };
+    }
+
+    const response = await rateLimitedFetch(
+      PROVIDER === 'ANTHROPIC'
+        ? 'https://api.anthropic.com/v1/messages'
+        : `${BASE_URL}/chat/completions`,
+      {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(requestBody)
+      }
+    );
+
+    if (!response.ok) {
+      const err = await response.json();
+      throw new Error(err.error?.message || 'LLM request failed');
+    }
+
+    const data = await response.json();
+    let content = '';
+
+    // Extract content based on provider
+    if (PROVIDER === 'ANTHROPIC') {
+      content = data.content[0].text;
+    } else {
+      content = data.choices[0].message.content;
+    }
+    
+    const result = extractJSON(content);
+    
+    // Ensure score is between 0-100
+    result.match_score = Math.max(0, Math.min(100, parseInt(result.match_score) || 50));
+    
+    return result;
+
+  } catch (err) {
+    console.error('❌ LLM scoring error:', err.message);
+    throw err;
+  }
 }
 
 /* ============================================================
@@ -287,14 +431,6 @@ app.post(
       // Parse JD once
       const jdText = truncate((await pdfParse(jdFile.buffer)).text);
 
-      const systemPrompt = `You are an ATS scoring engine.
-Return ONLY valid JSON with these exact fields:
-{
-  "match_score": number (0-100),
-  "seniority_fit": "Strong" | "Medium" | "Weak",
-  "summary": string
-}`.trim();
-
       // Process all resumes
       const results = [];
 
@@ -305,42 +441,15 @@ Return ONLY valid JSON with these exact fields:
           // Extract entities
           const entities = await extractEntities(resumeText, resumeFile.originalname);
 
-          // LLM scoring with rate limiting
-          const userPrompt = `RESUME:
-${resumeText}
-
-JOB DESCRIPTION:
-${jdText}`;
-
-          const response = await rateLimitedFetch(`${BASE_URL}/chat/completions`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${API_KEY}`
-            },
-            body: JSON.stringify({
-              model: MODEL,
-              temperature: 0.2,
-              max_tokens: 200,
-              messages: [
-                { role: 'system', content: systemPrompt },
-                { role: 'user', content: userPrompt }
-              ]
-            })
-          });
-
-          if (!response.ok) {
-            const err = await response.json();
-            throw new Error(err.error?.message || 'LLM request failed');
-          }
-
-          const data = await response.json();
-          const llmResult = extractJSON(data.choices[0].message.content);
+          // Score with LLM
+          const llmResult = await scoreResumeWithLLM(resumeText, jdText);
 
           results.push({
             resume_name: resumeFile.originalname,
             ...entities,
             match_score: llmResult.match_score,
+            skills_match: llmResult.skills_match,
+            experience_fit: llmResult.experience_fit,
             seniority_fit: llmResult.seniority_fit,
             summary: llmResult.summary
           });
@@ -349,7 +458,6 @@ ${jdText}`;
 
         } catch (err) {
           console.error(`❌ Error processing ${resumeFile.originalname}:`, err.message);
-          // Add error result for this resume
           results.push({
             resume_name: resumeFile.originalname,
             candidate_name: 'Unknown',
@@ -402,44 +510,7 @@ app.post(
 
       const entities = await extractEntities(resumeText, resumeFile.originalname);
 
-      const systemPrompt = `You are an ATS scoring engine.
-Return ONLY valid JSON:
-{
-  "match_score": number,
-  "seniority_fit": "Strong" | "Medium" | "Weak",
-  "summary": string
-}`.trim();
-
-      const userPrompt = `RESUME:
-${resumeText}
-
-JOB DESCRIPTION:
-${jdText}`;
-
-      const response = await rateLimitedFetch(`${BASE_URL}/chat/completions`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${API_KEY}`
-        },
-        body: JSON.stringify({
-          model: MODEL,
-          temperature: 0.2,
-          max_tokens: 200,
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: userPrompt }
-          ]
-        })
-      });
-
-      if (!response.ok) {
-        const err = await response.json();
-        throw new Error(err.error?.message || 'LLM request failed');
-      }
-
-      const data = await response.json();
-      const llmResult = extractJSON(data.choices[0].message.content);
+      const llmResult = await scoreResumeWithLLM(resumeText, jdText);
 
       res.json({
         ...entities,
